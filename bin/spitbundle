@@ -1,0 +1,35 @@
+#! /usr/bin/env ruby
+
+require 'spitbundler'
+require 'json'
+require 'pry-nav'
+
+lockfile_path = ARGV[0]
+
+unless File.exist?(lockfile_path)
+  raise "Cannot find file #{lockfile_path}"
+end
+
+dependencies = Spitbundler::DependencyParser.parse(lockfile_path)
+
+uri = URI('http://localhost:9292/gemtar')
+
+json_headers = {
+  "Content-Type" => "application/json",
+  "Accept" => "application/json"
+}
+
+http = Net::HTTP.start(uri.host, uri.port) do |http|
+  http.read_timeout = 1000
+  request = Net::HTTP::Post.new(uri.request_uri)
+  request.content_type = 'application/json'
+  request.body = dependencies.to_json
+
+  http.request(request) do |response|
+    File.open(ARGV[1], 'wb') do |io|
+      response.read_body do |chunk|
+        io.write(chunk)
+      end
+    end
+  end
+end
